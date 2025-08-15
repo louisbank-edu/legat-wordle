@@ -2,11 +2,10 @@
 <html lang="de">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>LEGAT-Wordle</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
-  /* ---------- Apple-ish Look ---------- */
+  /* ---------- Design Tokens ---------- */
   :root{
     --bg:#f5f6f7;
     --card:#ffffff;
@@ -20,7 +19,20 @@
     --kbd:#eef0f3;
     --kbd-text:#111316;
     --shadow:0 10px 30px rgba(0,0,0,.08);
+
+    /* Desktop Größen */
+    --tile-size:64px;
+    --tile-gap:10px;
+    --kbd-row-gap:8px;
+    --kbd-key-h:46px;
+    --radius:12px;
+    --card-radius:20px;
+    --container-w:560px;
+    --header-h:56px;
+    --safe-top: env(safe-area-inset-top, 0px);
   }
+
+  /* ---------- Base ---------- */
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -30,75 +42,80 @@
     display:grid;grid-template-rows:auto 1fr auto;
   }
   header{
-    position:sticky;top:0;backdrop-filter:saturate(180%) blur(12px);
+    position:sticky;top:0;z-index:5;
+    height:var(--header-h);
+    padding-top:var(--safe-top);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;letter-spacing:.5px;
+    backdrop-filter:saturate(180%) blur(12px);
     background:rgba(255,255,255,.7);
     border-bottom:1px solid #e5e7eb;
-    display:flex;align-items:center;justify-content:center;
-    height:56px;font-weight:700;letter-spacing:.5px;
   }
   .wrap{ display:grid; place-items:start center; padding:20px }
   .card{
-    width:min(560px, 96vw);
-    background:var(--card); border:1px solid #ebecef; border-radius:20px;
+    width:min(var(--container-w), 96vw);
+    background:var(--card); border:1px solid #ebecef; border-radius:var(--card-radius);
     box-shadow:var(--shadow); padding:18px 18px 22px; display:grid; gap:16px;
   }
   .meta{ color:var(--muted); text-align:center; }
 
-  /* ------- Board ------- */
-  .board{ display:grid; gap:10px; margin:0 auto }
-  .row{ display:grid; grid-template-columns:repeat(5, 64px); gap:10px; }
-  @media (max-width:480px){ .row{ grid-template-columns:repeat(5, 1fr);} }
+  /* ---------- Board ---------- */
+  .board{ display:grid; gap:var(--tile-gap); margin:0 auto }
+  .row{
+    display:grid;
+    grid-template-columns: repeat(5, var(--tile-size));
+    gap:var(--tile-gap);
+    justify-content:center;
+  }
   .tile{
-    aspect-ratio:1/1; border:2px solid var(--grid); background:var(--tile);
-    border-radius:12px; display:grid; place-items:center;
-    font-weight:800; font-size:1.75rem; text-transform:uppercase;
-    user-select:none; transition:border-color .2s ease, background .2s ease, color .2s ease;
-    perspective: 1000px; transform-style: preserve-3d;
+    width:var(--tile-size);
+    aspect-ratio:1/1;
+    border:2px solid var(--grid); background:var(--tile);
+    border-radius:var(--radius);
+    display:grid; place-items:center;
+    font-weight:800; font-size:calc(var(--tile-size) * 0.45);
+    text-transform:uppercase; user-select:none;
+    transition:border-color .2s ease, background .2s ease, color .2s ease;
+    perspective:1000px; transform-style:preserve-3d;
   }
   .tile.filled{ border-color:#b6bbc5 }
   .tile.correct{ background:var(--correct); border-color:var(--correct); color:#fff }
   .tile.present{ background:var(--present); border-color:var(--present); color:#111 }
   .tile.absent{ background:#8e9396; border-color:#8e9396; color:#fff }
-  .flip{
-    animation: flip .48s ease both;
-  }
-  @keyframes flip{
-    0%{ transform: rotateX(0deg) }
-    50%{ transform: rotateX(-90deg) }
-    100%{ transform: rotateX(0deg) }
-  }
+  .flip{ animation: flip .48s ease both; }
+  @keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(-90deg)}100%{transform:rotateX(0)}}
 
-  /* ------- Keyboard ------- */
-  .keyboard{ display:grid; gap:8px; margin:2px auto 0; width:min(600px,98%) }
-  .kb-row{ display:grid; grid-template-columns: repeat(20, 1fr); gap:8px }
+  /* ---------- Keyboard ---------- */
+  .keyboard{ display:grid; gap:var(--kbd-row-gap); margin:2px auto 0; width:min(600px,98%) }
+  .kb-row{ display:grid; grid-template-columns: repeat(20, 1fr); gap:var(--kbd-row-gap) }
   .kb-row .key{ grid-column: span 2 }
   .kb-row .key.wide{ grid-column: span 3 }
   .key{
-    height:46px; border:none; border-radius:12px;
+    height:var(--kbd-key-h); border:none; border-radius:var(--radius);
     background:var(--kbd); color:var(--kbd-text); font-weight:700;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.65), 0 1px 0 rgba(0,0,0,.06);
     cursor:pointer; transition: transform .04s ease, background .15s ease, opacity .2s ease;
+    touch-action: manipulation;
   }
   .key:active{ transform: translateY(1px) scale(.995) }
   .key.correct{ background:var(--correct); color:#fff }
   .key.present{ background:var(--present); color:#111 }
   .key.absent{ background:#a9aeb3; color:#fff }
 
-  /* ------- Toast ------- */
+  /* ---------- Toast ---------- */
   .toast{
-    position:fixed; top:72px; left:50%; transform:translateX(-50%);
+    position:fixed; top:calc(var(--header-h) + var(--safe-top) + 16px); left:50%; transform:translateX(-50%);
     background:#111; color:#fff; padding:10px 14px; border-radius:12px;
     box-shadow:0 8px 30px rgba(0,0,0,.25);
     opacity:0; pointer-events:none; transition:opacity .25s ease, transform .2s ease; z-index:50;
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(4px) }
 
-  /* ------- Win effects ------- */
+  /* ---------- Win FX ---------- */
   #confetti{ position:fixed; inset:0; pointer-events:none; z-index:60 }
   #explosion{ position:fixed; inset:0; pointer-events:none; z-index:61 }
   #winOverlay{
-    position:fixed; inset:0; z-index:59; display:none;
-    background:#000;
+    position:fixed; inset:0; z-index:59; display:none; background:#000;
   }
   #winOverlay img{
     position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
@@ -108,6 +125,41 @@
   #winOverlay.show img{ opacity:1 }
 
   footer{ height:22px }
+
+  /* =============== MOBILE LAYOUT =============== */
+  @media (max-width: 600px){
+    :root{
+      --tile-size: min(13.5vw, 58px);   /* passt auf kleine Screens */
+      --tile-gap: 6px;
+      --kbd-row-gap: 6px;
+      --kbd-key-h: 44px;
+      --radius: 10px;
+      --card-radius: 16px;
+      --container-w: 100%;             /* Card wird randloser */
+      --header-h: 50px;
+    }
+    .wrap{ padding:12px }
+    .card{ width:100%; padding:14px 12px 16px; gap:12px }
+    .meta{ font-size:.95rem }
+    .keyboard{ width:100%; max-width: 100%; padding:0 2px }
+    /* Dichtes Grid wie beim Original: 3 Reihen, ENTER/BACKSPACE breiter */
+    .kb-row{ grid-template-columns: repeat(20, 1fr); gap:6px }
+    .key{ font-size:1rem; min-width:0 }
+    .kb-row .key{ grid-column: span 2 }
+    .kb-row .key.wide{ grid-column: span 4 } /* ENTER/BACKSPACE fingerfreundlich */
+  }
+
+  /* Optional: Dark Mode folgt System */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1216; --card:#171a1f; --tile:#1d2128; --grid:#2a2f36; --text:#e7e9ee; --muted:#a3a8b1; --kbd:#202632; --kbd-text:#e7e9ee;
+      --shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    body{ background: radial-gradient(1200px 600px at 70% -10%, #1e2630 0%, var(--bg) 40%) fixed, var(--bg); }
+    header{ background: rgba(20,24,30,.6); border-bottom:1px solid #2a2f36 }
+    .card{ border-color:#262b33 }
+    .toast{ background:#2a313a }
+  }
 </style>
 </head>
 <body>
@@ -121,7 +173,7 @@
     </div>
   </div>
 
-  <!-- Effects -->
+  <!-- FX -->
   <canvas id="confetti"></canvas>
   <canvas id="explosion"></canvas>
   <div id="winOverlay" aria-hidden="true">
@@ -135,7 +187,7 @@
   /* -------------------- Config -------------------- */
   const TARGET = "LEGAT";
   const ROWS = 6, COLS = 5;
-  const USE_QWERTY = true; // auf QWERTY wie im Original
+  const USE_QWERTY = true; // wie Original
   const WIN_IMG = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_ID7hnteAHu0g7VNNbR0tsgE2F3NI5GdMew&s";
 
   /* -------------------- Elements -------------------- */
@@ -191,7 +243,7 @@
         if(ch === "{ENTER}"){ key.textContent="ENTER"; key.dataset.key="ENTER"; key.classList.add("wide"); }
         else if(ch === "{BKSP}"){ key.textContent="⌫"; key.dataset.key="BACKSPACE"; key.classList.add("wide"); }
         else{ key.textContent = ch; key.dataset.key = ch; }
-        key.addEventListener("click", () => handleKey(key.dataset.key));
+        key.addEventListener("click", () => handleKey(key.dataset.key), {passive:true});
         line.appendChild(key);
       }
       kbEl.appendChild(line);
@@ -286,20 +338,20 @@
       if(curCol>0){ curCol--; grid[curRow][curCol]=""; drawBoardRow(curRow); }
       return;
     }
-    if(k.length===1 && isLetter(k)){
+    if(k && k.length===1 && /^[A-Z]$/.test(k)){
       if(curCol<COLS){
         grid[curRow][curCol]=k.toUpperCase(); curCol++; drawBoardRow(curRow);
       }
     }
   }
 
-  // Global keyboard (sofort tippen möglich)
+  // Global keyboard (sofort tippen)
   window.addEventListener("keydown", (e)=>{
     const key = e.key;
     if(key === "Enter") return handleKey("ENTER");
     if(key === "Backspace") return handleKey("BACKSPACE");
     const ch = key.toUpperCase();
-    if(isLetter(ch)) return handleKey(ch);
+    if(/^[A-Z]$/.test(ch)) return handleKey(ch);
   }, {passive:true});
 
   /* -------------------- Effects -------------------- */
@@ -309,7 +361,7 @@
   function resizeConfetti(){ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight; }
   addEventListener("resize", resizeConfetti); resizeConfetti();
 
-  function spawnConfetti(n=350){
+  function spawnConfetti(n=500){
     const colors = ["#6aaa64","#c9b458","#8a8d8f","#111","#ffd766","#7cc8ff"];
     for(let i=0;i<n;i++){
       confetti.push({
@@ -401,39 +453,30 @@
     }
   }
 
-  // WebAudio Explosion Sound (ohne externe Dateien)
+  // WebAudio Explosion Sound
   let audioCtx;
   function ensureAudio(){
     if(!audioCtx){
-      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch{ /* ignore */ }
+      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch{}
     }
   }
   function playExplosionSound(power=1){
     ensureAudio(); if(!audioCtx) return;
     const dur = 0.7*power, now = audioCtx.currentTime;
-    // Noise
     const bufferSize = audioCtx.sampleRate * dur;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i=0;i<bufferSize;i++){
-      data[i] = (Math.random()*2-1) * (1 - i/bufferSize); // ausklingend
-    }
+    for (let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufferSize); }
     const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
-
-    // Filter sweep
     const filter = audioCtx.createBiquadFilter();
     filter.type = "lowpass"; filter.frequency.setValueAtTime(12000, now);
     filter.frequency.exponentialRampToValueAtTime(200, now + dur);
-
     const gain = audioCtx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(0.6*power, now+0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
     noise.connect(filter).connect(gain).connect(audioCtx.destination);
     noise.start(now); noise.stop(now + dur);
-
-    // Sub-Boom (Sinus)
     const osc = audioCtx.createOscillator();
     const oscGain = audioCtx.createGain();
     osc.type="sine"; osc.frequency.setValueAtTime(90, now);
@@ -447,31 +490,49 @@
 
   /* -------------------- Win Sequence -------------------- */
   function victoryShowtime(){
-    // Konfetti + Vollbild-Bild
     winImg.src = WIN_IMG;
     winOverlay.classList.add("show");
     winOverlay.style.display="block";
-    // kurze Verzögerung, dann Effekte
     setTimeout(()=>{
       rainConfetti(6000);
-      // 2–3 Feuerwerks-Bursts mit Sound
       fireworksShow();
     }, 180);
 
-    // Close overlay on click/ESC (optional)
-    winOverlay.addEventListener("click", () => {
-      winOverlay.classList.remove("show");
-      setTimeout(()=> winOverlay.style.display="none", 400);
-    }, {once:true});
-    window.addEventListener("keydown", escClose, {once:true});
-    function escClose(e){ if(e.key==="Escape"){ winOverlay.click(); } }
+    // Overlay schließen (optional)
+    const close = ()=>{ winOverlay.classList.remove("show"); setTimeout(()=> winOverlay.style.display="none", 400); };
+    winOverlay.addEventListener("click", close, {once:true});
+    window.addEventListener("keydown", (e)=>{ if(e.key==="Escape") close(); }, {once:true});
   }
 
   /* -------------------- Init -------------------- */
   drawBoard(); drawKeyboard();
 
-  // Simple tap-sound permission priming
+  // Eingabe (sofort tippen)
+  window.addEventListener("keydown", (e)=>{
+    const key = e.key;
+    if(key === "Enter") return handleKey("ENTER");
+    if(key === "Backspace") return handleKey("BACKSPACE");
+    const ch = key.toUpperCase();
+    if(/^[A-Z]$/.test(ch)) return handleKey(ch);
+  }, {passive:true});
+
+  // Touch/Click Audio-Enable (für iOS/Android)
   addEventListener("pointerdown", ensureAudio, {once:true});
+
+  /* ---------- Exporte im Scope ---------- */
+  function handleKey(k){
+    if(gameOver) return;
+    if(k === "ENTER"){ commitRow(); return; }
+    if(k === "BACKSPACE"){
+      if(curCol>0){ curCol--; grid[curRow][curCol]=""; drawBoardRow(curRow); }
+      return;
+    }
+    if(k && k.length===1 && /^[A-Z]$/.test(k)){
+      if(curCol<COLS){
+        grid[curRow][curCol]=k.toUpperCase(); curCol++; drawBoardRow(curRow);
+      }
+    }
+  }
 
 })();
 </script>
