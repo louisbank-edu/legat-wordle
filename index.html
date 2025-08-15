@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LEGAT-Wordle</title>
+<style>
+  :root {
+    --bg: #111316;
+    --panel: #171a1f;
+    --card: #1a1d21;
+    --tile: #2a2f36;
+    --text: #e7e9ee;
+    --muted: #9aa0a6;
+    --correct: #6aaa64;
+    --present: #c9b458;
+    --absent: #3a3a3c;
+    --accent: #7cc8ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 70% -10%, #1e2630 0%, var(--bg) 40%) fixed, var(--bg);
+    color: var(--text);
+    font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, Noto Sans, Apple Color Emoji, Segoe UI Emoji;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 420px minmax(420px, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } }
+  .photo {
+    background: var(--panel);
+    border: 1px solid #262b33;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    display: grid; gap: 10px; justify-items: center;
+  }
+  .photo h1 { margin: 0; font-size: clamp(1.2rem, 2.2vw, 1.6rem); letter-spacing: .5px; }
+  .frame {
+    width: 100%; max-width: 372px; aspect-ratio: 5 / 3;
+    border-radius: 12px; overflow: hidden; background: #0f1216;
+    display: grid; place-items: center; border: 1px solid #2b3139;
+  }
+  .frame img { width: 100%; height: 100%; object-fit: cover; }
+  .hint { color: var(--muted); text-align: center; font-size: .95rem; }
+
+  .game {
+    background: var(--panel);
+    border: 1px solid #262b33;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    display: grid; gap: 14px; justify-items: center;
+  }
+  .meta { color: var(--muted); text-align: center; font-size: .95rem; }
+
+  .board { width: min(520px, 92%); display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .tile {
+    aspect-ratio: 1 / 1; display: grid; place-items: center;
+    border: 2px solid #3a3f46; background: var(--tile); border-radius: 8px;
+    font-weight: 700; font-size: 1.6rem; text-transform: uppercase; user-select: none;
+    transition: transform .08s ease, background .2s ease, border-color .2s ease;
+  }
+  .tile.filled { border-color: var(--accent); }
+  .tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
+  .tile.present { background: var(--present); border-color: var(--present); color: #111; }
+  .tile.absent  { background: var(--absent);  border-color: var(--absent);  color: #dfe1e5; }
+
+  .keyboard { width: min(560px, 95%); display: grid; gap: 6px; user-select: none; }
+  .kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+  .kb-row:nth-child(2) { grid-template-columns: .5fr repeat(9, 1fr) .5fr; }
+  .kb-row:nth-child(3) { grid-template-columns: 1.3fr repeat(7, 1fr) 1.3fr; }
+  button.key {
+    padding: 12px 6px; border: none; border-radius: 8px;
+    background: var(--card); color: var(--text); font-weight: 700; letter-spacing: .5px;
+    cursor: pointer; box-shadow: 0 2px 0 rgba(255,255,255,.06) inset, 0 1px 0 rgba(0,0,0,.4);
+    transition: transform .04s ease, background .15s ease, opacity .2s ease;
+  }
+  button.key:active { transform: translateY(1px) scale(.99); }
+  button.key.correct { background: var(--correct); color: #fff; }
+  button.key.present { background: var(--present); color: #111; }
+  button.key.absent  { background: var(--absent); color: #dfe1e5; }
+
+  .controls { display: flex; justify-content: center; gap: 10px; margin-top: 4px; }
+  .controls button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2d3239; background: #1e2329; color: var(--text); font-weight: 600; cursor: pointer; }
+
+  .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: #2a313a; color: #fff; padding: 10px 14px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.35);
+    opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+  a, a:visited { color: #9bd1ff; text-decoration: none; }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+</style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+
+  <div class="wrap">
+    <aside class="photo">
+      <h1>LEGAT-Wordle</h1>
+      <div class="frame">
+        <img id="legatImg" alt="Thorsten Legat" src="https://www.rtl.de/img/1590713/1563374170/c1_1/1200/thorsten-legat-t8875.webp" />
+      </div>
+      <div class="hint">Links das <em>LEGAT</em>-Bild, rechts das Spiel. Errätst du's, wechselt das Bild &amp; es regnet Konfetti 🎉</div>
+    </aside>
+
+    <main class="game">
+      <div class="meta">Rate das 5-Buchstaben-Wort in 6 Versuchen. Grün = richtige Stelle, Gelb = falsche Stelle, Grau = nicht im Wort.</div>
+      <section class="board" id="board"></section>
+      <section class="keyboard" id="keyboard"></section>
+      <div class="controls">
+        <button id="resetBtn" title="Neustart">Neustart</button>
+        <button id="shareBtn" title="Ergebnis kopieren">Ergebnis kopieren</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const TARGET = "LEGAT";
+  const ROWS = 6, COLS = 5;
+
+  const boardEl = document.getElementById("board");
+  const kbEl = document.getElementById("keyboard");
+  const toastEl = document.getElementById("toast");
+  const resetBtn = document.getElementById("resetBtn");
+  const shareBtn = document.getElementById("shareBtn");
+  const legatImg = document.getElementById("legatImg");
+  const WIN_IMG = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_ID7hnteAHu0g7VNNbR0tsgE2F3NI5GdMew&s";
+
+  const kbRows = [
+    "QWERTZUIOP".split(""),
+    "ASDFGHJKL".split(""),
+    ["ENTER", ..."YXCVBNM".split(""), "⌫"]
+  ];
+
+  let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(""));
+  let curRow = 0, curCol = 0, gameOver = false, resultRows = [];
+
+  function drawBoard() {
+    boardEl.innerHTML = "";
+    for (let r = 0; r < ROWS; r++) {
+      const row = document.createElement("div");
+      row.className = "row";
+      for (let c = 0; c < COLS; c++) {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        const ch = grid[r][c];
+        tile.textContent = ch;
+        if (ch) tile.classList.add("filled");
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+  }
+  function drawKeyboard() {
+    kbEl.innerHTML = "";
+    for (const row of kbRows) {
+      const div = document.createElement("div");
+      div.className = "kb-row";
+      for (const key of row) {
+        const btn = document.createElement("button");
+        btn.className = "key";
+        btn.textContent = key;
+        btn.dataset.key = key;
+        btn.addEventListener("click", () => handleKey(key));
+        div.appendChild(btn);
+      }
+      kbEl.appendChild(div);
+    }
+  }
+  function setToast(msg, ms=1250) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(setToast._t);
+    setToast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
+  }
+  function updateTilesWithFeedback(r, feedback) {
+    const rowEl = boardEl.children[r];
+    resultRows[r] = feedback.map(f => f.state);
+    for (let c = 0; c < COLS; c++) {
+      const tile = rowEl.children[c];
+      tile.classList.remove("filled");
+      tile.classList.add(feedback[c].state);
+    }
+  }
+  function updateKeyboardColors(feedback) {
+    for (const item of feedback) {
+      const keyBtn = kbEl.querySelector(\`.key[data-key="\${item.letter}"]\`);
+      if (!keyBtn) continue;
+      const priority = { correct: 3, present: 2, absent: 1 };
+      const current =
+        keyBtn.classList.contains("correct") ? "correct" :
+        keyBtn.classList.contains("present") ? "present" :
+        keyBtn.classList.contains("absent") ? "absent" : null;
+      if (!current || priority[item.state] > priority[current]) {
+        keyBtn.classList.remove("correct","present","absent");
+        keyBtn.classList.add(item.state);
+      }
+    }
+  }
+  function evaluate(guess, target) {
+    guess = guess.toUpperCase();
+    target = target.toUpperCase();
+    const res = Array(COLS).fill(null).map((_,i)=>({ letter: guess[i], state: "absent" }));
+    const counts = {};
+    for (let i=0;i<COLS;i++) counts[target[i]] = (counts[target[i]]||0) + 1;
+    for (let i=0;i<COLS;i++) {
+      if (guess[i] === target[i]) { res[i].state = "correct"; counts[guess[i]]--; }
+    }
+    for (let i=0;i<COLS;i++) {
+      if (res[i].state === "correct") continue;
+      const ch = guess[i];
+      if (counts[ch] > 0) { res[i].state = "present"; counts[ch]--; }
+    }
+    return res;
+  }
+  function commitRow() {
+    const guess = grid[curRow].join("");
+    if (guess.length < COLS) { setToast("Nicht genug Buchstaben"); return; }
+    const feedback = evaluate(guess, TARGET);
+    updateTilesWithFeedback(curRow, feedback);
+    updateKeyboardColors(feedback);
+    const win = feedback.every(f => f.state === "correct");
+    if (win) {
+      gameOver = true;
+      legatImg.src = WIN_IMG;        // Bildwechsel
+      rainConfetti(450);             // Konfetti
+      setToast("Stark! Du hast LEGAT gefunden 🎉", 2200);
+    } else if (curRow === ROWS - 1) {
+      gameOver = true;
+      setToast("Leider vorbei. Das Wort war LEGAT.", 2200);
+    } else {
+      curRow++; curCol = 0;
+    }
+  }
+  function handleKey(k) {
+    if (gameOver) return;
+    if (k === "ENTER") { commitRow(); return; }
+    if (k === "⌫" || k === "BACKSPACE") {
+      if (curCol > 0) { curCol--; grid[curRow][curCol] = ""; drawBoardRow(curRow); }
+      return;
+    }
+    const isLetter = /^[A-ZÄÖÜ]$/.test(k);
+    if (!isLetter) return;
+    if (curCol < COLS) {
+      grid[curRow][curCol] = k.toUpperCase();
+      curCol++; drawBoardRow(curRow);
+    }
+  }
+  function drawBoardRow(r) {
+    const rowEl = boardEl.children[r];
+    for (let c=0;c<COLS;c++) {
+      const tile = rowEl.children[c];
+      tile.textContent = grid[r][c];
+      tile.classList.toggle("filled", !!grid[r][c]);
+    }
+  }
+  function onKeydown(e) {
+    const key = e.key.toUpperCase();
+    if (key === "ENTER") return handleKey("ENTER");
+    if (key === "BACKSPACE") return handleKey("⌫");
+    if (/^[A-ZÄÖÜ]$/.test(key)) return handleKey(key);
+  }
+  function resetGame() {
+    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(""));
+    curRow = 0; curCol = 0; gameOver = false; resultRows = [];
+    drawBoard();
+    kbEl.querySelectorAll(".key").forEach(k => k.classList.remove("correct","present","absent"));
+    legatImg.src = "https://www.rtl.de/img/1590713/1563374170/c1_1/1200/thorsten-legat-t8875.webp";
+    setToast("Neues Spiel!");
+  }
+  function shareResult() {
+    if (resultRows.length === 0) { setToast("Noch kein Ergebnis"); return; }
+    const rows = resultRows.filter(Boolean)
+      .map(r => r.map(s => s === "correct" ? "🟩" : s === "present" ? "🟨" : "⬛").join(""))
+      .join("\n");
+    const text = `LEGAT-Wordle ${gameOver ? "" : "(läuft)"}\n${rows}`;
+    navigator.clipboard.writeText(text).then(() => setToast("Ergebnis kopiert!"), () => setToast("Kopieren fehlgeschlagen"));
+  }
+
+  // --- Konfetti ---
+  const confettiCanvas = document.getElementById("confetti");
+  const ctx = confettiCanvas.getContext("2d");
+  let confettiParticles = [];
+  let confettiAnimId = null;
+  function resizeConfetti() { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+  window.addEventListener("resize", resizeConfetti); resizeConfetti();
+  function spawnConfetti(n=250) {
+    const colors = ["#6aaa64","#c9b458","#3a3a3c","#7cc8ff","#e7e9ee","#ff7aa2","#ffd766"];
+    for (let i=0;i<n;i++) {
+      confettiParticles.push({
+        x: Math.random()*confettiCanvas.width, y: -20 - Math.random()*confettiCanvas.height*0.4,
+        w: 6 + Math.random()*6, h: 10 + Math.random()*10,
+        vy: 2 + Math.random()*3, vx: -1 + Math.random()*2,
+        rot: Math.random()*Math.PI*2, vr: -0.2 + Math.random()*0.4,
+        color: colors[Math.floor(Math.random()*colors.length)], life: 0, maxLife: 400 + Math.random()*200
+      });
+    }
+  }
+  function drawConfetti() {
+    ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+    for (const p of confettiParticles) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore();
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += 0.015; p.life++;
+      if (p.y > confettiCanvas.height + 30 || p.life > p.maxLife) {
+        p.x = Math.random()*confettiCanvas.width; p.y = -20; p.vy = 2 + Math.random()*3; p.vx = -1 + Math.random()*2; p.life = 0;
+      }
+    }
+  }
+  function loopConfetti() { drawConfetti(); confettiAnimId = requestAnimationFrame(loopConfetti); }
+  function rainConfetti(burst=300, durationMs=5000) {
+    spawnConfetti(burst);
+    if (!confettiAnimId) loopConfetti();
+    setTimeout(() => {
+      const fade = setInterval(() => {
+        confettiParticles.splice(0, Math.ceil(confettiParticles.length*0.15));
+        if (confettiParticles.length === 0) {
+          clearInterval(fade);
+          if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+          confettiAnimId = null;
+          ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        }
+      }, 120);
+    }, durationMs);
+  }
+  // --- Ende Konfetti ---
+
+  drawBoard(); drawKeyboard();
+  window.addEventListener("keydown", onKeydown);
+  resetBtn.addEventListener("click", resetGame);
+  shareBtn.addEventListener("click", shareResult);
+})();
+</script>
+</body>
+</html>
+
