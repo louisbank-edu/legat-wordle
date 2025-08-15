@@ -4,347 +4,475 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>LEGAT-Wordle</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
-  :root {
-    --bg: #111316;
-    --panel: #171a1f;
-    --card: #1a1d21;
-    --tile: #2a2f36;
-    --text: #e7e9ee;
-    --muted: #9aa0a6;
-    --correct: #6aaa64;
-    --present: #c9b458;
-    --absent: #3a3a3c;
-    --accent: #7cc8ff;
+  /* ---------- Apple-ish Look ---------- */
+  :root{
+    --bg:#f5f6f7;
+    --card:#ffffff;
+    --tile:#f0f1f3;
+    --grid:#d9dce1;
+    --text:#0b0c0f;
+    --muted:#6b7280;
+    --correct:#6aaa64;
+    --present:#c9b458;
+    --absent:#787c7e;
+    --kbd:#eef0f3;
+    --kbd-text:#111316;
+    --shadow:0 10px 30px rgba(0,0,0,.08);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: radial-gradient(1200px 600px at 70% -10%, #1e2630 0%, var(--bg) 40%) fixed, var(--bg);
-    color: var(--text);
-    font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, Noto Sans, Apple Color Emoji, Segoe UI Emoji;
-    min-height: 100vh;
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:linear-gradient(180deg,#fbfbfc 0%, #eef0f3 100%);
+    color:var(--text);
+    font:16px/1.5 system-ui, -apple-system, "SF Pro Text", Segoe UI, Roboto, Arial;
+    display:grid;grid-template-rows:auto 1fr auto;
   }
-  .wrap {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px;
-    display: grid;
-    grid-template-columns: 420px minmax(420px, 1fr);
-    gap: 24px;
-    align-items: start;
+  header{
+    position:sticky;top:0;backdrop-filter:saturate(180%) blur(12px);
+    background:rgba(255,255,255,.7);
+    border-bottom:1px solid #e5e7eb;
+    display:flex;align-items:center;justify-content:center;
+    height:56px;font-weight:700;letter-spacing:.5px;
   }
-  @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } }
-  .photo {
-    background: var(--panel);
-    border: 1px solid #262b33;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0 12px 30px rgba(0,0,0,.25);
-    display: grid; gap: 10px; justify-items: center;
+  .wrap{ display:grid; place-items:start center; padding:20px }
+  .card{
+    width:min(560px, 96vw);
+    background:var(--card); border:1px solid #ebecef; border-radius:20px;
+    box-shadow:var(--shadow); padding:18px 18px 22px; display:grid; gap:16px;
   }
-  .photo h1 { margin: 0; font-size: clamp(1.2rem, 2.2vw, 1.6rem); letter-spacing: .5px; }
-  .frame {
-    width: 100%; max-width: 372px; aspect-ratio: 5 / 3;
-    border-radius: 12px; overflow: hidden; background: #0f1216;
-    display: grid; place-items: center; border: 1px solid #2b3139;
-  }
-  .frame img { width: 100%; height: 100%; object-fit: cover; }
-  .hint { color: var(--muted); text-align: center; font-size: .95rem; }
+  .meta{ color:var(--muted); text-align:center; }
 
-  .game {
-    background: var(--panel);
-    border: 1px solid #262b33;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0 12px 30px rgba(0,0,0,.25);
-    display: grid; gap: 14px; justify-items: center;
+  /* ------- Board ------- */
+  .board{ display:grid; gap:10px; margin:0 auto }
+  .row{ display:grid; grid-template-columns:repeat(5, 64px); gap:10px; }
+  @media (max-width:480px){ .row{ grid-template-columns:repeat(5, 1fr);} }
+  .tile{
+    aspect-ratio:1/1; border:2px solid var(--grid); background:var(--tile);
+    border-radius:12px; display:grid; place-items:center;
+    font-weight:800; font-size:1.75rem; text-transform:uppercase;
+    user-select:none; transition:border-color .2s ease, background .2s ease, color .2s ease;
+    perspective: 1000px; transform-style: preserve-3d;
   }
-  .meta { color: var(--muted); text-align: center; font-size: .95rem; }
-
-  .board { width: min(520px, 92%); display: grid; gap: 8px; }
-  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .tile {
-    aspect-ratio: 1 / 1; display: grid; place-items: center;
-    border: 2px solid #3a3f46; background: var(--tile); border-radius: 8px;
-    font-weight: 700; font-size: 1.6rem; text-transform: uppercase; user-select: none;
-    transition: transform .08s ease, background .2s ease, border-color .2s ease;
+  .tile.filled{ border-color:#b6bbc5 }
+  .tile.correct{ background:var(--correct); border-color:var(--correct); color:#fff }
+  .tile.present{ background:var(--present); border-color:var(--present); color:#111 }
+  .tile.absent{ background:#8e9396; border-color:#8e9396; color:#fff }
+  .flip{
+    animation: flip .48s ease both;
   }
-  .tile.filled { border-color: var(--accent); }
-  .tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
-  .tile.present { background: var(--present); border-color: var(--present); color: #111; }
-  .tile.absent  { background: var(--absent);  border-color: var(--absent);  color: #dfe1e5; }
-
-  .keyboard { width: min(560px, 95%); display: grid; gap: 6px; user-select: none; }
-  .kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
-  .kb-row:nth-child(2) { grid-template-columns: .5fr repeat(9, 1fr) .5fr; }
-  .kb-row:nth-child(3) { grid-template-columns: 1.3fr repeat(7, 1fr) 1.3fr; }
-  button.key {
-    padding: 12px 6px; border: none; border-radius: 8px;
-    background: var(--card); color: var(--text); font-weight: 700; letter-spacing: .5px;
-    cursor: pointer; box-shadow: 0 2px 0 rgba(255,255,255,.06) inset, 0 1px 0 rgba(0,0,0,.4);
-    transition: transform .04s ease, background .15s ease, opacity .2s ease;
+  @keyframes flip{
+    0%{ transform: rotateX(0deg) }
+    50%{ transform: rotateX(-90deg) }
+    100%{ transform: rotateX(0deg) }
   }
-  button.key:active { transform: translateY(1px) scale(.99); }
-  button.key.correct { background: var(--correct); color: #fff; }
-  button.key.present { background: var(--present); color: #111; }
-  button.key.absent  { background: var(--absent); color: #dfe1e5; }
 
-  .controls { display: flex; justify-content: center; gap: 10px; margin-top: 4px; }
-  .controls button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2d3239; background: #1e2329; color: var(--text); font-weight: 600; cursor: pointer; }
-
-  .toast {
-    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-    background: #2a313a; color: #fff; padding: 10px 14px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.35);
-    opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .2s ease;
+  /* ------- Keyboard ------- */
+  .keyboard{ display:grid; gap:8px; margin:2px auto 0; width:min(600px,98%) }
+  .kb-row{ display:grid; grid-template-columns: repeat(20, 1fr); gap:8px }
+  .kb-row .key{ grid-column: span 2 }
+  .kb-row .key.wide{ grid-column: span 3 }
+  .key{
+    height:46px; border:none; border-radius:12px;
+    background:var(--kbd); color:var(--kbd-text); font-weight:700;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.65), 0 1px 0 rgba(0,0,0,.06);
+    cursor:pointer; transition: transform .04s ease, background .15s ease, opacity .2s ease;
   }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
-  a, a:visited { color: #9bd1ff; text-decoration: none; }
+  .key:active{ transform: translateY(1px) scale(.995) }
+  .key.correct{ background:var(--correct); color:#fff }
+  .key.present{ background:var(--present); color:#111 }
+  .key.absent{ background:#a9aeb3; color:#fff }
 
-  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+  /* ------- Toast ------- */
+  .toast{
+    position:fixed; top:72px; left:50%; transform:translateX(-50%);
+    background:#111; color:#fff; padding:10px 14px; border-radius:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.25);
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .2s ease; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(4px) }
+
+  /* ------- Win effects ------- */
+  #confetti{ position:fixed; inset:0; pointer-events:none; z-index:60 }
+  #explosion{ position:fixed; inset:0; pointer-events:none; z-index:61 }
+  #winOverlay{
+    position:fixed; inset:0; z-index:59; display:none;
+    background:#000;
+  }
+  #winOverlay img{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    opacity:0; transition: opacity .6s ease;
+  }
+  #winOverlay.show{ display:block }
+  #winOverlay.show img{ opacity:1 }
+
+  footer{ height:22px }
 </style>
 </head>
 <body>
-  <canvas id="confetti"></canvas>
+  <header>LEGAT-Wordle</header>
 
   <div class="wrap">
-    <aside class="photo">
-      <h1>LEGAT-Wordle</h1>
-      <div class="frame">
-        <img id="legatImg" alt="Thorsten Legat" src="https://www.rtl.de/img/1590713/1563374170/c1_1/1200/thorsten-legat-t8875.webp" />
-      </div>
-      <div class="hint">Links das <em>LEGAT</em>-Bild, rechts das Spiel. Errätst du's, wechselt das Bild &amp; es regnet Konfetti 🎉</div>
-    </aside>
+    <div class="card" id="gameCard" aria-label="Wordle Spielfeld">
+      <div class="meta">Errate das 5-Buchstaben-Wort in 6 Versuchen. (Grün = richtig, Gelb = anderer Platz)</div>
+      <section class="board" id="board" aria-live="polite"></section>
+      <section class="keyboard" id="keyboard" aria-label="Bildschirmtastatur"></section>
+    </div>
+  </div>
 
-    <main class="game">
-      <div class="meta">Rate das 5-Buchstaben-Wort in 6 Versuchen. Grün = richtige Stelle, Gelb = falsche Stelle, Grau = nicht im Wort.</div>
-      <section class="board" id="board"></section>
-      <section class="keyboard" id="keyboard"></section>
-      <div class="controls">
-        <button id="resetBtn" title="Neustart">Neustart</button>
-        <button id="shareBtn" title="Ergebnis kopieren">Ergebnis kopieren</button>
-      </div>
-    </main>
+  <!-- Effects -->
+  <canvas id="confetti"></canvas>
+  <canvas id="explosion"></canvas>
+  <div id="winOverlay" aria-hidden="true">
+    <img id="winImg" alt="LEGAT Vollbild">
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
+  /* -------------------- Config -------------------- */
   const TARGET = "LEGAT";
   const ROWS = 6, COLS = 5;
+  const USE_QWERTY = true; // auf QWERTY wie im Original
+  const WIN_IMG = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_ID7hnteAHu0g7VNNbR0tsgE2F3NI5GdMew&s";
 
+  /* -------------------- Elements -------------------- */
   const boardEl = document.getElementById("board");
   const kbEl = document.getElementById("keyboard");
   const toastEl = document.getElementById("toast");
-  const resetBtn = document.getElementById("resetBtn");
-  const shareBtn = document.getElementById("shareBtn");
-  const legatImg = document.getElementById("legatImg");
-  const WIN_IMG = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_ID7hnteAHu0g7VNNbR0tsgE2F3NI5GdMew&s";
+  const confettiCanvas = document.getElementById("confetti");
+  const explosionCanvas = document.getElementById("explosion");
+  const winOverlay = document.getElementById("winOverlay");
+  const winImg = document.getElementById("winImg");
 
-  const kbRows = [
-    "QWERTZUIOP".split(""),
-    "ASDFGHJKL".split(""),
-    ["ENTER", ..."YXCVBNM".split(""), "⌫"]
-  ];
-
-  let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(""));
+  /* -------------------- State -------------------- */
+  let grid = Array.from({length: ROWS}, () => Array(COLS).fill(""));
   let curRow = 0, curCol = 0, gameOver = false, resultRows = [];
+  const keyPriority = { absent:1, present:2, correct:3 };
 
-  function drawBoard() {
+  /* -------------------- Helpers -------------------- */
+  const isLetter = ch => /^[A-Z]$/.test(ch);
+  function setToast(msg, ms=1400){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(setToast._t);
+    setToast._t = setTimeout(()=>toastEl.classList.remove("show"), ms);
+  }
+
+  function drawBoard(){
     boardEl.innerHTML = "";
-    for (let r = 0; r < ROWS; r++) {
+    for(let r=0;r<ROWS;r++){
       const row = document.createElement("div");
       row.className = "row";
-      for (let c = 0; c < COLS; c++) {
+      for(let c=0;c<COLS;c++){
         const tile = document.createElement("div");
         tile.className = "tile";
-        const ch = grid[r][c];
-        tile.textContent = ch;
-        if (ch) tile.classList.add("filled");
+        tile.textContent = grid[r][c];
+        if(grid[r][c]) tile.classList.add("filled");
         row.appendChild(tile);
       }
       boardEl.appendChild(row);
     }
   }
-  function drawKeyboard() {
+
+  function drawKeyboard(){
     kbEl.innerHTML = "";
-    for (const row of kbRows) {
-      const div = document.createElement("div");
-      div.className = "kb-row";
-      for (const key of row) {
-        const btn = document.createElement("button");
-        btn.className = "key";
-        btn.textContent = key;
-        btn.dataset.key = key;
-        btn.addEventListener("click", () => handleKey(key));
-        div.appendChild(btn);
+    const rows = USE_QWERTY
+      ? ["QWERTYUIOP", "ASDFGHJKL", "{ENTER}ZXCVBNM{BKSP}"]
+      : ["QWERTZUIOP", "ASDFGHJKL", "{ENTER}YXCVBNM{BKSP}"];
+    for(const r of rows){
+      const line = document.createElement("div");
+      line.className = "kb-row";
+      for(const ch of r.match(/\{[^}]+\}|./g)){
+        const key = document.createElement("button");
+        key.className = "key";
+        if(ch === "{ENTER}"){ key.textContent="ENTER"; key.dataset.key="ENTER"; key.classList.add("wide"); }
+        else if(ch === "{BKSP}"){ key.textContent="⌫"; key.dataset.key="BACKSPACE"; key.classList.add("wide"); }
+        else{ key.textContent = ch; key.dataset.key = ch; }
+        key.addEventListener("click", () => handleKey(key.dataset.key));
+        line.appendChild(key);
       }
-      kbEl.appendChild(div);
+      kbEl.appendChild(line);
     }
   }
-  function setToast(msg, ms=1250) {
-    toastEl.textContent = msg;
-    toastEl.classList.add("show");
-    clearTimeout(setToast._t);
-    setToast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
-  }
-  function updateTilesWithFeedback(r, feedback) {
+
+  function drawBoardRow(r){
     const rowEl = boardEl.children[r];
-    resultRows[r] = feedback.map(f => f.state);
-    for (let c = 0; c < COLS; c++) {
-      const tile = rowEl.children[c];
-      tile.classList.remove("filled");
-      tile.classList.add(feedback[c].state);
-    }
-  }
-  function updateKeyboardColors(feedback) {
-    for (const item of feedback) {
-      const keyBtn = kbEl.querySelector(\`.key[data-key="\${item.letter}"]\`);
-      if (!keyBtn) continue;
-      const priority = { correct: 3, present: 2, absent: 1 };
-      const current =
-        keyBtn.classList.contains("correct") ? "correct" :
-        keyBtn.classList.contains("present") ? "present" :
-        keyBtn.classList.contains("absent") ? "absent" : null;
-      if (!current || priority[item.state] > priority[current]) {
-        keyBtn.classList.remove("correct","present","absent");
-        keyBtn.classList.add(item.state);
-      }
-    }
-  }
-  function evaluate(guess, target) {
-    guess = guess.toUpperCase();
-    target = target.toUpperCase();
-    const res = Array(COLS).fill(null).map((_,i)=>({ letter: guess[i], state: "absent" }));
-    const counts = {};
-    for (let i=0;i<COLS;i++) counts[target[i]] = (counts[target[i]]||0) + 1;
-    for (let i=0;i<COLS;i++) {
-      if (guess[i] === target[i]) { res[i].state = "correct"; counts[guess[i]]--; }
-    }
-    for (let i=0;i<COLS;i++) {
-      if (res[i].state === "correct") continue;
-      const ch = guess[i];
-      if (counts[ch] > 0) { res[i].state = "present"; counts[ch]--; }
-    }
-    return res;
-  }
-  function commitRow() {
-    const guess = grid[curRow].join("");
-    if (guess.length < COLS) { setToast("Nicht genug Buchstaben"); return; }
-    const feedback = evaluate(guess, TARGET);
-    updateTilesWithFeedback(curRow, feedback);
-    updateKeyboardColors(feedback);
-    const win = feedback.every(f => f.state === "correct");
-    if (win) {
-      gameOver = true;
-      legatImg.src = WIN_IMG;        // Bildwechsel
-      rainConfetti(450);             // Konfetti
-      setToast("Stark! Du hast LEGAT gefunden 🎉", 2200);
-    } else if (curRow === ROWS - 1) {
-      gameOver = true;
-      setToast("Leider vorbei. Das Wort war LEGAT.", 2200);
-    } else {
-      curRow++; curCol = 0;
-    }
-  }
-  function handleKey(k) {
-    if (gameOver) return;
-    if (k === "ENTER") { commitRow(); return; }
-    if (k === "⌫" || k === "BACKSPACE") {
-      if (curCol > 0) { curCol--; grid[curRow][curCol] = ""; drawBoardRow(curRow); }
-      return;
-    }
-    const isLetter = /^[A-ZÄÖÜ]$/.test(k);
-    if (!isLetter) return;
-    if (curCol < COLS) {
-      grid[curRow][curCol] = k.toUpperCase();
-      curCol++; drawBoardRow(curRow);
-    }
-  }
-  function drawBoardRow(r) {
-    const rowEl = boardEl.children[r];
-    for (let c=0;c<COLS;c++) {
+    for(let c=0;c<COLS;c++){
       const tile = rowEl.children[c];
       tile.textContent = grid[r][c];
       tile.classList.toggle("filled", !!grid[r][c]);
     }
   }
-  function onKeydown(e) {
-    const key = e.key.toUpperCase();
-    if (key === "ENTER") return handleKey("ENTER");
-    if (key === "BACKSPACE") return handleKey("⌫");
-    if (/^[A-ZÄÖÜ]$/.test(key)) return handleKey(key);
-  }
-  function resetGame() {
-    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(""));
-    curRow = 0; curCol = 0; gameOver = false; resultRows = [];
-    drawBoard();
-    kbEl.querySelectorAll(".key").forEach(k => k.classList.remove("correct","present","absent"));
-    legatImg.src = "https://www.rtl.de/img/1590713/1563374170/c1_1/1200/thorsten-legat-t8875.webp";
-    setToast("Neues Spiel!");
-  }
-  function shareResult() {
-    if (resultRows.length === 0) { setToast("Noch kein Ergebnis"); return; }
-    const rows = resultRows.filter(Boolean)
-      .map(r => r.map(s => s === "correct" ? "🟩" : s === "present" ? "🟨" : "⬛").join(""))
-      .join("\n");
-    const text = `LEGAT-Wordle ${gameOver ? "" : "(läuft)"}\n${rows}`;
-    navigator.clipboard.writeText(text).then(() => setToast("Ergebnis kopiert!"), () => setToast("Kopieren fehlgeschlagen"));
+
+  function evaluate(guess, target){
+    guess = guess.toUpperCase();
+    target = target.toUpperCase();
+    const res = Array(COLS).fill(null).map((_,i)=>({ letter: guess[i], state: "absent" }));
+    const counts = {};
+    for(let i=0;i<COLS;i++) counts[target[i]] = (counts[target[i]]||0) + 1;
+    // correct pass
+    for(let i=0;i<COLS;i++){
+      if(guess[i] === target[i]){ res[i].state="correct"; counts[guess[i]]--; }
+    }
+    // present pass
+    for(let i=0;i<COLS;i++){
+      if(res[i].state==="correct") continue;
+      const ch = guess[i];
+      if(counts[ch]>0){ res[i].state="present"; counts[ch]--; }
+    }
+    return res;
   }
 
-  // --- Konfetti ---
-  const confettiCanvas = document.getElementById("confetti");
-  const ctx = confettiCanvas.getContext("2d");
-  let confettiParticles = [];
-  let confettiAnimId = null;
-  function resizeConfetti() { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
-  window.addEventListener("resize", resizeConfetti); resizeConfetti();
-  function spawnConfetti(n=250) {
-    const colors = ["#6aaa64","#c9b458","#3a3a3c","#7cc8ff","#e7e9ee","#ff7aa2","#ffd766"];
-    for (let i=0;i<n;i++) {
-      confettiParticles.push({
-        x: Math.random()*confettiCanvas.width, y: -20 - Math.random()*confettiCanvas.height*0.4,
-        w: 6 + Math.random()*6, h: 10 + Math.random()*10,
-        vy: 2 + Math.random()*3, vx: -1 + Math.random()*2,
-        rot: Math.random()*Math.PI*2, vr: -0.2 + Math.random()*0.4,
-        color: colors[Math.floor(Math.random()*colors.length)], life: 0, maxLife: 400 + Math.random()*200
-      });
+  function animateReveal(r, feedback){
+    const rowEl = boardEl.children[r];
+    const delayStep = 120;
+    for(let c=0;c<COLS;c++){
+      const tile = rowEl.children[c];
+      setTimeout(()=>{
+        tile.classList.add("flip");
+        setTimeout(()=>{
+          tile.classList.remove("filled");
+          tile.classList.add(feedback[c].state);
+        }, 240);
+      }, c*delayStep);
     }
   }
-  function drawConfetti() {
-    ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
-    for (const p of confettiParticles) {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore();
-      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += 0.015; p.life++;
-      if (p.y > confettiCanvas.height + 30 || p.life > p.maxLife) {
-        p.x = Math.random()*confettiCanvas.width; p.y = -20; p.vy = 2 + Math.random()*3; p.vx = -1 + Math.random()*2; p.life = 0;
+
+  function updateKeyboardColors(feedback){
+    for(const {letter, state} of feedback){
+      const btn = kbEl.querySelector(`.key[data-key="${letter}"]`);
+      if(!btn) continue;
+      const current =
+        btn.classList.contains("correct") ? "correct" :
+        btn.classList.contains("present") ? "present" :
+        btn.classList.contains("absent") ? "absent" : null;
+      if(!current || keyPriority[state] > keyPriority[current]){
+        btn.classList.remove("correct","present","absent");
+        btn.classList.add(state);
       }
     }
   }
-  function loopConfetti() { drawConfetti(); confettiAnimId = requestAnimationFrame(loopConfetti); }
-  function rainConfetti(burst=300, durationMs=5000) {
-    spawnConfetti(burst);
-    if (!confettiAnimId) loopConfetti();
-    setTimeout(() => {
-      const fade = setInterval(() => {
-        confettiParticles.splice(0, Math.ceil(confettiParticles.length*0.15));
-        if (confettiParticles.length === 0) {
+
+  function commitRow(){
+    const guess = grid[curRow].join("");
+    if(guess.length < COLS){ setToast("Nicht genug Buchstaben"); return; }
+
+    const feedback = evaluate(guess, TARGET);
+    resultRows[curRow] = feedback.map(f=>f.state);
+    animateReveal(curRow, feedback);
+    updateKeyboardColors(feedback);
+
+    const win = feedback.every(f=>f.state==="correct");
+    setTimeout(()=>{
+      if(win){
+        gameOver = true;
+        victoryShowtime();
+      }else if(curRow === ROWS-1){
+        gameOver = true;
+        setToast("Vorbei – das Wort war LEGAT.", 2000);
+      }else{
+        curRow++; curCol = 0;
+      }
+    }, COLS*130+280);
+  }
+
+  function handleKey(k){
+    if(gameOver) return;
+    if(k === "ENTER"){ commitRow(); return; }
+    if(k === "BACKSPACE"){
+      if(curCol>0){ curCol--; grid[curRow][curCol]=""; drawBoardRow(curRow); }
+      return;
+    }
+    if(k.length===1 && isLetter(k)){
+      if(curCol<COLS){
+        grid[curRow][curCol]=k.toUpperCase(); curCol++; drawBoardRow(curRow);
+      }
+    }
+  }
+
+  // Global keyboard (sofort tippen möglich)
+  window.addEventListener("keydown", (e)=>{
+    const key = e.key;
+    if(key === "Enter") return handleKey("ENTER");
+    if(key === "Backspace") return handleKey("BACKSPACE");
+    const ch = key.toUpperCase();
+    if(isLetter(ch)) return handleKey(ch);
+  }, {passive:true});
+
+  /* -------------------- Effects -------------------- */
+  // Confetti
+  const cctx = confettiCanvas.getContext("2d");
+  let confetti = [], confettiAnim;
+  function resizeConfetti(){ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight; }
+  addEventListener("resize", resizeConfetti); resizeConfetti();
+
+  function spawnConfetti(n=350){
+    const colors = ["#6aaa64","#c9b458","#8a8d8f","#111","#ffd766","#7cc8ff"];
+    for(let i=0;i<n;i++){
+      confetti.push({
+        x: Math.random()*confettiCanvas.width,
+        y: -20-Math.random()*confettiCanvas.height*.5,
+        w: 6+Math.random()*7,
+        h: 10+Math.random()*10,
+        vy: 2+Math.random()*3,
+        vx: -1+Math.random()*2,
+        rot: Math.random()*Math.PI*2,
+        vr: -0.2+Math.random()*.4,
+        color: colors[(Math.random()*colors.length)|0],
+        life: 0, max: 420+Math.random()*220
+      });
+    }
+  }
+  function drawConfetti(){
+    cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    for(const p of confetti){
+      cctx.save(); cctx.translate(p.x,p.y); cctx.rotate(p.rot);
+      cctx.fillStyle=p.color; cctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+      cctx.restore();
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.vy+=0.015; p.life++;
+      if(p.y>confettiCanvas.height+30 || p.life>p.max){
+        p.x=Math.random()*confettiCanvas.width; p.y=-20; p.vy=2+Math.random()*3; p.vx=-1+Math.random()*2; p.life=0;
+      }
+    }
+  }
+  function loopConfetti(){ drawConfetti(); confettiAnim=requestAnimationFrame(loopConfetti); }
+  function rainConfetti(durationMs=5500){
+    spawnConfetti(500);
+    if(!confettiAnim) loopConfetti();
+    setTimeout(()=>{ // ausfaden
+      const fade = setInterval(()=>{
+        confetti.splice(0, Math.ceil(confetti.length*0.18));
+        if(confetti.length===0){
           clearInterval(fade);
-          if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
-          confettiAnimId = null;
-          ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+          if(confettiAnim) cancelAnimationFrame(confettiAnim);
+          confettiAnim=null; cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
         }
-      }, 120);
+      },120);
     }, durationMs);
   }
-  // --- Ende Konfetti ---
 
+  // Explosions-Partikel
+  const ex = explosionCanvas.getContext("2d");
+  let sparks = [], exAnim;
+  function resizeExplosion(){ explosionCanvas.width = innerWidth; explosionCanvas.height = innerHeight; }
+  addEventListener("resize", resizeExplosion); resizeExplosion();
+
+  function boom(x,y, power=1){
+    const count = 120*power;
+    for(let i=0;i<count;i++){
+      const ang = Math.random()*Math.PI*2;
+      const spd = (2+Math.random()*5) * (power*0.9+0.3);
+      sparks.push({
+        x,y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+        life: 0, max: 40+Math.random()*30,
+        color:`hsl(${Math.random()*40+10}, 90%, ${Math.random()*40+50}%)`,
+        size: 1.5 + Math.random()*2.5
+      });
+    }
+    playExplosionSound(power);
+  }
+  function drawExplosion(){
+    ex.clearRect(0,0,explosionCanvas.width, explosionCanvas.height);
+    for(const s of sparks){
+      ex.fillStyle=s.color;
+      ex.globalCompositeOperation = "lighter";
+      ex.beginPath(); ex.arc(s.x, s.y, s.size, 0, Math.PI*2); ex.fill();
+      s.x+=s.vx; s.y+=s.vy; s.vx*=0.985; s.vy = s.vy*0.985 + 0.06; s.life++;
+    }
+    sparks = sparks.filter(s => s.life < s.max);
+  }
+  function loopExplosion(){
+    drawExplosion();
+    if(sparks.length>0){ exAnim=requestAnimationFrame(loopExplosion); }
+    else { cancelAnimationFrame(exAnim); exAnim=null; ex.clearRect(0,0,explosionCanvas.width, explosionCanvas.height); }
+  }
+  function fireworksShow(){
+    const bursts = 4;
+    for(let i=0;i<bursts;i++){
+      setTimeout(()=>{
+        const x = innerWidth*(0.2 + Math.random()*0.6);
+        const y = innerHeight*(0.25 + Math.random()*0.5);
+        boom(x,y, 1.2);
+        if(!exAnim) loopExplosion();
+      }, i*450);
+    }
+  }
+
+  // WebAudio Explosion Sound (ohne externe Dateien)
+  let audioCtx;
+  function ensureAudio(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch{ /* ignore */ }
+    }
+  }
+  function playExplosionSound(power=1){
+    ensureAudio(); if(!audioCtx) return;
+    const dur = 0.7*power, now = audioCtx.currentTime;
+    // Noise
+    const bufferSize = audioCtx.sampleRate * dur;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<bufferSize;i++){
+      data[i] = (Math.random()*2-1) * (1 - i/bufferSize); // ausklingend
+    }
+    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+
+    // Filter sweep
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass"; filter.frequency.setValueAtTime(12000, now);
+    filter.frequency.exponentialRampToValueAtTime(200, now + dur);
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.6*power, now+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    noise.connect(filter).connect(gain).connect(audioCtx.destination);
+    noise.start(now); noise.stop(now + dur);
+
+    // Sub-Boom (Sinus)
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type="sine"; osc.frequency.setValueAtTime(90, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now+dur);
+    oscGain.gain.setValueAtTime(0.0001, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.5*power, now+0.03);
+    oscGain.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+    osc.connect(oscGain).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now+dur);
+  }
+
+  /* -------------------- Win Sequence -------------------- */
+  function victoryShowtime(){
+    // Konfetti + Vollbild-Bild
+    winImg.src = WIN_IMG;
+    winOverlay.classList.add("show");
+    winOverlay.style.display="block";
+    // kurze Verzögerung, dann Effekte
+    setTimeout(()=>{
+      rainConfetti(6000);
+      // 2–3 Feuerwerks-Bursts mit Sound
+      fireworksShow();
+    }, 180);
+
+    // Close overlay on click/ESC (optional)
+    winOverlay.addEventListener("click", () => {
+      winOverlay.classList.remove("show");
+      setTimeout(()=> winOverlay.style.display="none", 400);
+    }, {once:true});
+    window.addEventListener("keydown", escClose, {once:true});
+    function escClose(e){ if(e.key==="Escape"){ winOverlay.click(); } }
+  }
+
+  /* -------------------- Init -------------------- */
   drawBoard(); drawKeyboard();
-  window.addEventListener("keydown", onKeydown);
-  resetBtn.addEventListener("click", resetGame);
-  shareBtn.addEventListener("click", shareResult);
+
+  // Simple tap-sound permission priming
+  addEventListener("pointerdown", ensureAudio, {once:true});
+
 })();
 </script>
 </body>
