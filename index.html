@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MUCCI-Wordle</title>
+<title>LEGAT-Wordle</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- optional: Bild vorladen, damit das Overlay sofort erscheint -->
-<link rel="preload" as="image" href="./IMG_4365.jpg">
 <style>
   /* ---------- Apple-ish Look ---------- */
   :root{
@@ -61,7 +59,9 @@
   .tile.correct{ background:var(--correct); border-color:var(--correct); color:#fff }
   .tile.present{ background:var(--present); border-color:var(--present); color:#111 }
   .tile.absent{ background:#8e9396; border-color:#8e9396; color:#fff }
-  .flip{ animation: flip .48s ease both; }
+  .flip{
+    animation: flip .48s ease both;
+  }
   @keyframes flip{
     0%{ transform: rotateX(0deg) }
     50%{ transform: rotateX(-90deg) }
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-  <header>MUCCI-Wordle</header>
+  <header>LEGAT-Wordle</header>
 
   <div class="wrap">
     <div class="card" id="gameCard" aria-label="Wordle Spielfeld">
@@ -125,7 +125,7 @@
   <canvas id="confetti"></canvas>
   <canvas id="explosion"></canvas>
   <div id="winOverlay" aria-hidden="true">
-    <img id="winImg" alt="MUCCI Vollbild">
+    <img id="winImg" alt="LEGAT Vollbild">
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -133,10 +133,10 @@
 <script>
 (() => {
   /* -------------------- Config -------------------- */
-  const TARGET = "MUCCI";        // <— Neues Zielwort
+  const TARGET = "LEGAT";
   const ROWS = 6, COLS = 5;
-  const USE_QWERTY = true;
-  const WIN_IMG = "./IMG_4365.jpg"; // <— Lokales Bild neben index.html
+  const USE_QWERTY = true; // auf QWERTY wie im Original
+  const WIN_IMG = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_ID7hnteAHu0g7VNNbR0tsgE2F3NI5GdMew&s";
 
   /* -------------------- Elements -------------------- */
   const boardEl = document.getElementById("board");
@@ -272,7 +272,7 @@
         victoryShowtime();
       }else if(curRow === ROWS-1){
         gameOver = true;
-        setToast("Vorbei – das Wort war MUCCI.", 2000);
+        setToast("Vorbei – das Wort war LEGAT.", 2000);
       }else{
         curRow++; curCol = 0;
       }
@@ -293,7 +293,7 @@
     }
   }
 
-  // Global keyboard
+  // Global keyboard (sofort tippen möglich)
   window.addEventListener("keydown", (e)=>{
     const key = e.key;
     if(key === "Enter") return handleKey("ENTER");
@@ -387,7 +387,7 @@
   function loopExplosion(){
     drawExplosion();
     if(sparks.length>0){ exAnim=requestAnimationFrame(loopExplosion); }
-    else { cancelAnimationFrame(exAnim); exAnim=null; ex.clearRect(0,0,explosionCanvas.width,explosionCanvas.height); }
+    else { cancelAnimationFrame(exAnim); exAnim=null; ex.clearRect(0,0,explosionCanvas.width, explosionCanvas.height); }
   }
   function fireworksShow(){
     const bursts = 4;
@@ -416,10 +416,11 @@
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i=0;i<bufferSize;i++){
-      data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+      data[i] = (Math.random()*2-1) * (1 - i/bufferSize); // ausklingend
     }
     const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
 
+    // Filter sweep
     const filter = audioCtx.createBiquadFilter();
     filter.type = "lowpass"; filter.frequency.setValueAtTime(12000, now);
     filter.frequency.exponentialRampToValueAtTime(200, now + dur);
@@ -432,7 +433,7 @@
     noise.connect(filter).connect(gain).connect(audioCtx.destination);
     noise.start(now); noise.stop(now + dur);
 
-    // Sub-Boom
+    // Sub-Boom (Sinus)
     const osc = audioCtx.createOscillator();
     const oscGain = audioCtx.createGain();
     osc.type="sine"; osc.frequency.setValueAtTime(90, now);
@@ -450,23 +451,26 @@
     winImg.src = WIN_IMG;
     winOverlay.classList.add("show");
     winOverlay.style.display="block";
+    // kurze Verzögerung, dann Effekte
     setTimeout(()=>{
       rainConfetti(6000);
+      // 2–3 Feuerwerks-Bursts mit Sound
       fireworksShow();
     }, 180);
 
-    // Overlay schließen per Klick/ESC (optional)
+    // Close overlay on click/ESC (optional)
     winOverlay.addEventListener("click", () => {
       winOverlay.classList.remove("show");
       setTimeout(()=> winOverlay.style.display="none", 400);
     }, {once:true});
-    window.addEventListener("keydown", e => { if(e.key==="Escape") winOverlay.click(); }, {once:true});
+    window.addEventListener("keydown", escClose, {once:true});
+    function escClose(e){ if(e.key==="Escape"){ winOverlay.click(); } }
   }
 
   /* -------------------- Init -------------------- */
   drawBoard(); drawKeyboard();
 
-  // Sofort tippen + Audio-Priming
+  // Simple tap-sound permission priming
   addEventListener("pointerdown", ensureAudio, {once:true});
 
 })();
